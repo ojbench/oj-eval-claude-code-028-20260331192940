@@ -2,7 +2,6 @@
 #include <string>
 #include <unordered_map>
 #include <set>
-#include <vector>
 
 using namespace std;
 
@@ -21,20 +20,22 @@ struct Student {
         }
         avgScore = sum / 9;
     }
+};
 
-    bool operator<(const Student& other) const {
+struct CompareStudent {
+    bool operator()(Student* a, Student* b) const {
         // Higher average score comes first
-        if (avgScore != other.avgScore) {
-            return avgScore > other.avgScore;
+        if (a->avgScore != b->avgScore) {
+            return a->avgScore > b->avgScore;
         }
         // Compare individual scores from 0 to 8
         for (int i = 0; i < 9; i++) {
-            if (scores[i] != other.scores[i]) {
-                return scores[i] > other.scores[i];
+            if (a->scores[i] != b->scores[i]) {
+                return a->scores[i] > b->scores[i];
             }
         }
         // Compare name lexicographically
-        return name < other.name;
+        return a->name < b->name;
     }
 };
 
@@ -42,8 +43,8 @@ int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
-    unordered_map<string, Student> students;
-    set<Student> ranking;
+    unordered_map<string, Student*> students;
+    set<Student*, CompareStudent> ranking;
     bool started = false;
 
     string command;
@@ -68,14 +69,14 @@ int main() {
                 continue;
             }
 
-            Student s;
-            s.name = name;
-            s.gender = gender;
-            s.classNum = classNum;
+            Student* s = new Student();
+            s->name = name;
+            s->gender = gender;
+            s->classNum = classNum;
             for (int i = 0; i < 9; i++) {
-                cin >> s.scores[i];
+                cin >> s->scores[i];
             }
-            s.calculateAvg();
+            s->calculateAvg();
             students[name] = s;
 
         } else if (command == "START") {
@@ -87,7 +88,7 @@ int main() {
             // Update ranks
             int r = 1;
             for (auto it = ranking.begin(); it != ranking.end(); ++it) {
-                students[it->name].rank = r++;
+                (*it)->rank = r++;
             }
 
         } else if (command == "UPDATE") {
@@ -101,26 +102,27 @@ int main() {
             }
 
             // Remove from ranking, update, and re-insert
-            Student& s = students[name];
+            Student* s = students[name];
             ranking.erase(s);
-            s.scores[code] = score;
-            s.calculateAvg();
+            s->scores[code] = score;
+            s->calculateAvg();
             ranking.insert(s);
+            // DO NOT update ranks here - only on FLUSH
 
         } else if (command == "FLUSH") {
             // Update all ranks
             int r = 1;
             for (auto it = ranking.begin(); it != ranking.end(); ++it) {
-                students[it->name].rank = r++;
+                (*it)->rank = r++;
             }
 
         } else if (command == "PRINTLIST") {
             int r = 1;
             for (auto it = ranking.begin(); it != ranking.end(); ++it) {
-                const Student& s = students[it->name];
-                string genderStr = (s.gender == 'M') ? "male" : "female";
-                cout << r++ << " " << s.name << " " << genderStr << " "
-                     << s.classNum << " " << s.avgScore << "\n";
+                Student* s = *it;
+                string genderStr = (s->gender == 'M') ? "male" : "female";
+                cout << r++ << " " << s->name << " " << genderStr << " "
+                     << s->classNum << " " << s->avgScore << "\n";
             }
 
         } else if (command == "QUERY") {
@@ -133,11 +135,16 @@ int main() {
             }
 
             cout << "STUDENT " << name << " NOW AT RANKING "
-                 << students[name].rank << "\n";
+                 << students[name]->rank << "\n";
 
         } else if (command == "END") {
             break;
         }
+    }
+
+    // Cleanup
+    for (auto& p : students) {
+        delete p.second;
     }
 
     return 0;
