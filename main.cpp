@@ -1,7 +1,8 @@
 #include <iostream>
 #include <string>
 #include <unordered_map>
-#include <set>
+#include <vector>
+#include <algorithm>
 
 using namespace std;
 
@@ -20,22 +21,20 @@ struct Student {
         }
         avgScore = sum / 9;
     }
-};
 
-struct CompareStudent {
-    bool operator()(Student* a, Student* b) const {
+    bool operator<(const Student& other) const {
         // Higher average score comes first
-        if (a->avgScore != b->avgScore) {
-            return a->avgScore > b->avgScore;
+        if (avgScore != other.avgScore) {
+            return avgScore > other.avgScore;
         }
         // Compare individual scores from 0 to 8
         for (int i = 0; i < 9; i++) {
-            if (a->scores[i] != b->scores[i]) {
-                return a->scores[i] > b->scores[i];
+            if (scores[i] != other.scores[i]) {
+                return scores[i] > other.scores[i];
             }
         }
         // Compare name lexicographically
-        return a->name < b->name;
+        return name < other.name;
     }
 };
 
@@ -44,7 +43,7 @@ int main() {
     cin.tie(nullptr);
 
     unordered_map<string, Student*> students;
-    set<Student*, CompareStudent> ranking;
+    vector<Student*> ranking; // Use vector to maintain order until FLUSH
     bool started = false;
 
     string command;
@@ -81,14 +80,16 @@ int main() {
 
         } else if (command == "START") {
             started = true;
-            // Build initial ranking
+            // Build initial ranking by sorting
             for (auto& p : students) {
-                ranking.insert(p.second);
+                ranking.push_back(p.second);
             }
+            sort(ranking.begin(), ranking.end(), [](Student* a, Student* b) {
+                return *a < *b;
+            });
             // Update ranks
-            int r = 1;
-            for (auto it = ranking.begin(); it != ranking.end(); ++it) {
-                (*it)->rank = r++;
+            for (int i = 0; i < (int)ranking.size(); i++) {
+                ranking[i]->rank = i + 1;
             }
 
         } else if (command == "UPDATE") {
@@ -101,27 +102,25 @@ int main() {
                 continue;
             }
 
-            // Remove from ranking, update, and re-insert
+            // Only update the score, don't re-sort
             Student* s = students[name];
-            ranking.erase(s);
             s->scores[code] = score;
             s->calculateAvg();
-            ranking.insert(s);
-            // DO NOT update ranks here - only on FLUSH
 
         } else if (command == "FLUSH") {
-            // Update all ranks
-            int r = 1;
-            for (auto it = ranking.begin(); it != ranking.end(); ++it) {
-                (*it)->rank = r++;
+            // Re-sort and update all ranks
+            sort(ranking.begin(), ranking.end(), [](Student* a, Student* b) {
+                return *a < *b;
+            });
+            for (int i = 0; i < (int)ranking.size(); i++) {
+                ranking[i]->rank = i + 1;
             }
 
         } else if (command == "PRINTLIST") {
-            int r = 1;
-            for (auto it = ranking.begin(); it != ranking.end(); ++it) {
-                Student* s = *it;
+            for (int i = 0; i < (int)ranking.size(); i++) {
+                Student* s = ranking[i];
                 string genderStr = (s->gender == 'M') ? "male" : "female";
-                cout << r++ << " " << s->name << " " << genderStr << " "
+                cout << s->rank << " " << s->name << " " << genderStr << " "
                      << s->classNum << " " << s->avgScore << "\n";
             }
 
